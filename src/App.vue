@@ -35,6 +35,8 @@
               <input
                 v-model="ticker"
                 @keydown.enter="add"
+                @keydown="isAdded"
+                @keyup="suggestTickets"
                 type="text"
                 name="wallet"
                 id="wallet"
@@ -42,31 +44,22 @@
                 placeholder="Например DOGE"
               />
             </div>
-            <!-- <div
+            <div
+              v-if="recommendedTockens.length > 0"
               class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap"
             >
               <span
+                v-for="tocken in recommendedTockens"
+                :key="tocken"
+                @click="add(e, tocken)"
                 class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
               >
-                BTC
+                {{ tocken }}
               </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                DOGE
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                BCH
-              </span>
-              <span
-                class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-              >
-                CHD
-              </span>
-            </div> -->
-            <!-- <div class="text-sm text-red-600">Такой тикер уже добавлен</div> -->
+            </div>
+            <div v-if="alreadyAdded" class="text-sm text-red-600">
+              Такой тикер уже добавлен
+            </div>
           </div>
         </div>
         <button
@@ -177,22 +170,39 @@
       </section>
     </div>
   </div>
+  <!-- {{ Object.keys(allTockens) }} -->
 </template>
 
 <script>
 export default {
   name: "App",
+  created() {
+    fetch("https://min-api.cryptocompare.com/data/all/coinlist?summary=true")
+      .then((response) => response.json())
+      .then((data) => (this.allTockens = data["Data"]));
+  },
   data() {
     return {
       ticker: "",
       tickers: [],
       sel: null,
       graph: [],
+      alreadyAdded: false,
+      allTockens: [],
+      recommendedTockens: [],
     };
   },
   methods: {
-    add() {
-      const currentTicker = { name: this.ticker, price: "-" };
+    add(_e, value = this.ticker) {
+      this.ticker = value;
+      const currentTicker = { name: value, price: "-" };
+      const alreadyAdded = this.tickers.find(
+        (t) => t.name.toUpperCase() === currentTicker.name.toUpperCase()
+      );
+      if (alreadyAdded) {
+        this.alreadyAdded = true;
+        return;
+      }
       this.tickers.push(currentTicker);
       setInterval(async () => {
         const f = await fetch(
@@ -208,6 +218,7 @@ export default {
         }
       }, 5000);
       this.ticker = "";
+      this.recommendedTockens = [];
     },
 
     select(ticker) {
@@ -217,6 +228,7 @@ export default {
 
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t != tickerToRemove);
+      this.sel = null;
     },
 
     normalizeGraph() {
@@ -225,6 +237,29 @@ export default {
       return this.graph.map(
         (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
       );
+    },
+
+    isAdded(event) {
+      console.log("isAdded");
+      if (event.key === "Enter") {
+        return;
+      }
+      if (this.alreadyAdded === true) {
+        this.alreadyAdded = false;
+      }
+    },
+    suggestTickets() {
+      this.recommendedTockens = [];
+      for (const tocken in this.allTockens) {
+        if (this.ticker !== "" && tocken.includes(this.ticker.toUpperCase())) {
+          console.log(tocken);
+          if (this.recommendedTockens.length < 4) {
+            this.recommendedTockens.push(tocken);
+          } else {
+            break;
+          }
+        }
+      }
     },
   },
 };
