@@ -105,11 +105,11 @@
         <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="t in filteredTickers()"
+            v-for="t in paginatedTickers"
             :key="t.name"
             @click="select(t)"
             :class="{
-              'border-4': sel === t,
+              'border-4': selectedTicker === t,
             }"
             class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
           >
@@ -144,13 +144,13 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
-      <section v-if="sel" class="relative">
+      <section v-if="selectedTicker" class="relative">
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
-          {{ sel.name }} - USD
+          {{ selectedTicker.name }} - USD
         </h3>
         <div class="flex items-end border-gray-600 border-b border-l h-64">
           <div
-            v-for="(bar, idx) in normalizeGraph()"
+            v-for="(bar, idx) in normalizedGraph"
             :key="idx"
             :style="{
               height: `${bar}%`,
@@ -159,7 +159,7 @@
           ></div>
         </div>
         <button
-          @click="sel = null"
+          @click="selectedTicker = null"
           type="button"
           class="absolute top-0 right-0"
         >
@@ -192,6 +192,25 @@
 </template>
 
 <script>
+// Problems
+// [x] 1. Existance DEPENDED data in state | crit: 5+
+// [ ] 2. Requests right inside of components (???) | crit: 5
+// [ ] 3. When delete token subscribe to update price is still active | crit: 5
+// [ ] 4. error handlers of API | crit: 5
+// [ ] 5. Quantity of API requests | crit: 4
+// [x] 6. When delete the ticker it remains in localStorage | crit: 4
+// [x] 7. Duplicate code in watch | crit: 3
+// [ ] 8. localStorage and incognito tabs | crit: 3
+// [ ] 9. Graphic looks terrible if a lot of prices in it | crit: 2
+// [ ] 10. Magic strings and numbers (URL, 5000ms delay, key of localStorage, numbers of items on one page) | crit: 1
+
+// Parallels
+// [x] Graphic doesn't work if everywhere is equal values
+
+// bags
+// reload page 1, click next and you on 11 page
+// ncaught (in promise) TypeError: Cannot read properties of undefined (reading 'toPrecision')
+
 export default {
   name: "App",
   created() {
@@ -220,32 +239,57 @@ export default {
   data() {
     return {
       ticker: "",
-      tickers: [],
-      sel: null,
-      graph: [],
-      page: 1,
       filter: "",
-      hasNextPage: false,
+
+      tickers: [],
+      selectedTicker: null,
+
+      graph: [],
+
+      page: 1,
+
       alreadyAdded: false,
       allTockens: [],
       recommendedTockens: [],
     };
   },
-  methods: {
-    filteredTickers() {
-      // 1 -- 0, 5
-      // 2 -- 6, 11
-      // (6 * (page - 1), 6 * page - 1)
-      const start = (this.page - 1) * 6;
-      const end = this.page * 6;
 
-      const filteredTickers = this.tickers.filter((ticker) =>
-        ticker.name.includes(this.filter)
-      );
-      this.hasNextPage = filteredTickers.length > end;
-
-      return filteredTickers.slice(start, end);
+  computed: {
+    startIndex() {
+      return (this.page - 1) * 6;
     },
+    endIndex() {
+      return this.page * 6;
+    },
+    filteredTickers() {
+      return this.tickers.filter((ticker) => ticker.name.includes(this.filter));
+    },
+    paginatedTickers() {
+      return this.filteredTickers.slice(this.startIndex, this.endIndex);
+    },
+    hasNextPage() {
+      return this.filteredTickers.length > this.endIndex;
+    },
+    normalizedGraph() {
+      const maxValue = Math.max(...this.graph);
+      const minValue = Math.min(...this.graph);
+
+      if (maxValue === minValue) {
+        return this.graph.map(() => 50);
+      }
+      return this.graph.map(
+        (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
+      );
+    },
+    pageStateOptions() {
+      return {
+        filter: this.filter,
+        page: this.page,
+      };
+    },
+  },
+
+  methods: {
     subscribeToUpdates(tickerName) {
       setInterval(async () => {
         const f = await fetch(
@@ -256,7 +300,7 @@ export default {
         // currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
         this.tickers.find((t) => t.name === tickerName).price =
           data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        if (this.sel?.name === tickerName) {
+        if (this.selectedTicker?.name === tickerName) {
           this.graph.push(data.USD);
         }
       }, 5000);
@@ -272,10 +316,9 @@ export default {
         return;
       }
 
-      this.tickers.push(currentTicker);
+      this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
 
-      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
       this.subscribeToUpdates(currentTicker.name);
 
       this.ticker = "";
@@ -283,21 +326,14 @@ export default {
     },
 
     select(ticker) {
-      this.sel = ticker;
-      this.graph = [];
+      this.selectedTicker = ticker;
     },
 
     handleDelete(tickerToRemove) {
       this.tickers = this.tickers.filter((t) => t != tickerToRemove);
-      this.sel = null;
-    },
-
-    normalizeGraph() {
-      const maxValue = Math.max(...this.graph);
-      const minValue = Math.min(...this.graph);
-      return this.graph.map(
-        (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
-      );
+      if (this.selectedTicker === tickerToRemove) {
+        this.selectedTicker = null;
+      }
     },
 
     isAdded(event) {
@@ -325,20 +361,28 @@ export default {
   },
 
   watch: {
+    selectedTicker() {
+      this.graph = [];
+    },
+    tickers(newValue, oldValue) {
+      // why watcher doesn't work if you add new value
+      console.log(newValue === oldValue);
+      console.log(newValue);
+      localStorage.setItem("cryptonomicon-list", JSON.stringify(this.tickers));
+    },
+    paginatedTickers() {
+      if (this.paginatedTickers.length === 0 && this.page > 1) {
+        this.page -= 1;
+      }
+    },
     filter() {
       this.page = 1;
-
-      window.history.pushState(
-        null,
-        document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
-      );
     },
-    page() {
+    pageStateOptions(value) {
       window.history.pushState(
         null,
         document.title,
-        `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+        `${window.location.pathname}?filter=${value.filter}&page=${value.page}`
       );
     },
   },
