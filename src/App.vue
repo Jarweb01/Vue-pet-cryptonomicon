@@ -118,7 +118,7 @@
                 {{ t.name }} - USD
               </dt>
               <dd class="mt-1 text-3xl font-semibold text-gray-900">
-                {{ t.price }}
+                {{ formatPrice(t.price) }}
               </dd>
             </div>
             <div class="w-full border-t border-gray-200"></div>
@@ -211,6 +211,8 @@
 // reload page 1, click next and you on 11 page
 // ncaught (in promise) TypeError: Cannot read properties of undefined (reading 'toPrecision')
 
+import { loadTickers } from "./api";
+
 export default {
   name: "App",
   created() {
@@ -231,10 +233,9 @@ export default {
 
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
-      this.tickers.forEach((ticker) => {
-        this.subscribeToUpdates(ticker.name);
-      });
     }
+
+    setInterval(this.updateTickers, 5000);
   },
   data() {
     return {
@@ -290,21 +291,24 @@ export default {
   },
 
   methods: {
-    subscribeToUpdates(tickerName) {
-      setInterval(async () => {
-        const f = await fetch(
-          `https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key=6fa06929b1d3dd119baccd106bfd5c06868f3040dc93c81fe163f1add0f1d590`
-        );
-        const data = await f.json();
-
-        // currentTicker.price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        this.tickers.find((t) => t.name === tickerName).price =
-          data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        if (this.selectedTicker?.name === tickerName) {
-          this.graph.push(data.USD);
-        }
-      }, 5000);
+    formatPrice(price) {
+      if (price === "-") {
+        return price;
+      }
+      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
     },
+    async updateTickers() {
+      if (!this.tickers.length) {
+        return;
+      }
+      const exchangeData = await loadTickers(this.tickers.map((t) => t.name));
+
+      this.tickers.forEach((ticker) => {
+        const price = exchangeData[ticker.name.toUpperCase()];
+        ticker.price = price ?? "-";
+      });
+    },
+
     add(_e, value = this.ticker) {
       this.ticker = value;
       const currentTicker = { name: value, price: "-" };
@@ -318,8 +322,6 @@ export default {
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
-
-      this.subscribeToUpdates(currentTicker.name);
 
       this.ticker = "";
       this.recommendedTockens = [];
