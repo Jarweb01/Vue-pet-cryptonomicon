@@ -211,7 +211,8 @@
 // reload page 1, click next and you on 11 page
 // ncaught (in promise) TypeError: Cannot read properties of undefined (reading 'toPrecision')
 
-import { loadTickers } from "./api";
+import { subscribeToTicker } from "./api";
+// import { loadTickers } from "./api";
 
 export default {
   name: "App",
@@ -233,6 +234,11 @@ export default {
 
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) =>
+        subscribeToTicker(ticker.name, (price) => {
+          console.log("ticker price changed to: ", price, ticker.name);
+        })
+      );
     }
 
     setInterval(this.updateTickers, 5000);
@@ -292,21 +298,24 @@ export default {
 
   methods: {
     formatPrice(price) {
+      // console.log("price", price);
       if (price === "-") {
         return price;
       }
-      return price > 1 ? price.toFixed(2) : price.toPrecision(2);
+      price = +price;
+      // console.log("price type", typeof price);
+      return +price > 1 ? +price.toFixed(2) : +price.toPrecision(2);
     },
     async updateTickers() {
-      if (!this.tickers.length) {
-        return;
-      }
-      const exchangeData = await loadTickers(this.tickers.map((t) => t.name));
-
-      this.tickers.forEach((ticker) => {
-        const price = exchangeData[ticker.name.toUpperCase()];
-        ticker.price = price ?? "-";
-      });
+      // if (!this.tickers.length) {
+      //   return;
+      // }
+      // // const exchangeData = await loadTickers(this.tickers.map((t) => t.name));
+      // this.tickers.forEach((ticker) => {
+      //   console.log("exchangeData: ", exchangeData);
+      //   const price = exchangeData[ticker.name.toUpperCase()];
+      //   ticker.price = price ?? "-";
+      // });
     },
 
     add(_e, value = this.ticker) {
@@ -322,6 +331,7 @@ export default {
 
       this.tickers = [...this.tickers, currentTicker];
       this.filter = "";
+      subscribeToTicker(this.ticker.name, () => {});
 
       this.ticker = "";
       this.recommendedTockens = [];
