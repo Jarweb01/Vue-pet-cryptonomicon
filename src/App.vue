@@ -211,7 +211,7 @@
 // reload page 1, click next and you on 11 page
 // ncaught (in promise) TypeError: Cannot read properties of undefined (reading 'toPrecision')
 
-import { subscribeToTicker } from "./api";
+import { subscribeToTicker, unsubscribeFromTicker } from "./api";
 // import { loadTickers } from "./api";
 
 export default {
@@ -235,9 +235,9 @@ export default {
     if (tickersData) {
       this.tickers = JSON.parse(tickersData);
       this.tickers.forEach((ticker) =>
-        subscribeToTicker(ticker.name, (price) => {
-          console.log("ticker price changed to: ", price, ticker.name);
-        })
+        subscribeToTicker(ticker.name, (newPrice) =>
+          this.updateTicker(ticker.name, newPrice)
+        )
       );
     }
 
@@ -297,6 +297,13 @@ export default {
   },
 
   methods: {
+    updateTicker(tickerName, price) {
+      this.tickers
+        .filter((t) => t.name === tickerName)
+        .forEach((t) => {
+          t.price = price;
+        });
+    },
     formatPrice(price) {
       // console.log("price", price);
       if (price === "-") {
@@ -305,17 +312,6 @@ export default {
       price = +price;
       // console.log("price type", typeof price);
       return +price > 1 ? +price.toFixed(2) : +price.toPrecision(2);
-    },
-    async updateTickers() {
-      // if (!this.tickers.length) {
-      //   return;
-      // }
-      // // const exchangeData = await loadTickers(this.tickers.map((t) => t.name));
-      // this.tickers.forEach((ticker) => {
-      //   console.log("exchangeData: ", exchangeData);
-      //   const price = exchangeData[ticker.name.toUpperCase()];
-      //   ticker.price = price ?? "-";
-      // });
     },
 
     add(_e, value = this.ticker) {
@@ -330,10 +326,12 @@ export default {
       }
 
       this.tickers = [...this.tickers, currentTicker];
-      this.filter = "";
-      subscribeToTicker(this.ticker.name, () => {});
-
       this.ticker = "";
+      this.filter = "";
+      subscribeToTicker(currentTicker.name, (newPrice) =>
+        this.updateTicker(currentTicker.name, newPrice)
+      );
+
       this.recommendedTockens = [];
     },
 
@@ -346,6 +344,7 @@ export default {
       if (this.selectedTicker === tickerToRemove) {
         this.selectedTicker = null;
       }
+      unsubscribeFromTicker(tickerToRemove.name);
     },
 
     isAdded(event) {
