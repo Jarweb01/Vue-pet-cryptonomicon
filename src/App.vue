@@ -301,6 +301,9 @@ export default {
       this.tickers
         .filter((t) => t.name === tickerName)
         .forEach((t) => {
+          if (t === this.selectedTicker) {
+            this.graph.push(price);
+          }
           t.price = price;
         });
     },
@@ -314,7 +317,7 @@ export default {
       return +price > 1 ? +price.toFixed(2) : +price.toPrecision(2);
     },
 
-    add(_e, value = this.ticker) {
+    add(_e, value = this.ticker.toUpperCase()) {
       this.ticker = value;
       const currentTicker = { name: value, price: "-" };
       const alreadyAdded = this.tickers.find(
@@ -360,7 +363,7 @@ export default {
       this.recommendedTockens = [];
       for (const tocken in this.allTockens) {
         if (this.ticker !== "" && tocken.includes(this.ticker.toUpperCase())) {
-          console.log(tocken);
+          // console.log(tocken);
           if (this.recommendedTockens.length < 4) {
             this.recommendedTockens.push(tocken);
           } else {
