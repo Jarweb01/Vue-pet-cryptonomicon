@@ -18,7 +18,7 @@
       ></div>
     </div>
     <button
-      @click="selectedTickerLocal = null"
+      @click="deleteSelectedTicker()"
       type="button"
       class="absolute top-0 right-0"
     >
@@ -86,7 +86,7 @@ export default {
       if (!this.$refs.graph) {
         return;
       }
-      if (this.$refs.graphElement) {
+      if (this.$refs.graphElement && this.$refs.graphElement.length > 0) {
         this.maxGraphElements = Math.floor(
           this.$refs.graph.clientWidth / this.$refs.graphElement[0].clientWidth
         );
@@ -103,7 +103,6 @@ export default {
       }
     },
     updateGraphLocal() {
-      console.log("updateGraphLocal");
       this.graphFromProps = this.graph;
     },
     updateNormalizedGraphLocal() {
@@ -111,7 +110,14 @@ export default {
         this.graphFitted.push(
           this.graphFromProps[this.graphFromProps.length - 1]
         );
+      } else {
+        this.graphFitted = [];
       }
+    },
+    deleteSelectedTicker() {
+      this.graphFromProps = [];
+      this.graphFitted = [];
+      this.$emit("selDeleted");
     },
   },
   computed: {
@@ -119,7 +125,7 @@ export default {
       return this.graphFromProps.length;
     },
     normalizedGraph() {
-      console.log("normalizedGraph");
+      // console.log("normalizedGraph");
       this.updateGraphLocal();
       const maxValue = Math.max(...this.graphFitted);
       const minValue = Math.min(...this.graphFitted);
@@ -134,7 +140,7 @@ export default {
   },
   watch: {
     lengthOfGraph() {
-      console.log("length of graph changed");
+      // console.log("length of graph changed");
       this.calculateMaxGraphElements();
       this.updateNormalizedGraphLocal();
     },

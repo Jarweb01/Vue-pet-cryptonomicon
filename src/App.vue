@@ -94,10 +94,14 @@
         </dl>
         <hr class="w-full border-t border-gray-600 my-4" />
       </template>
-      <tocken-graphic :selectedTicker="selectedTicker" :graph="graph" />
+      <tocken-graphic
+        @selDeleted="deleteSelectedTicker"
+        :selectedTicker="selectedTicker"
+        :graph="graph"
+      />
     </div>
   </div>
-  <!-- {{ maxGraphElements }} -->
+  <!-- {{ graph }} -->
 </template>
 
 <script>
@@ -164,14 +168,6 @@ export default {
     setInterval(this.updateTickers, 5000);
   },
 
-  // mounted() {
-  //   window.addEventListener("resize", this.calculateMaxGraphElements);
-  // },
-
-  // beforeUnmount() {
-  //   window.removeEventListener("resize", this.calculateMaxGraphElements);
-  // },
-
   data() {
     return {
       // ticker: "",
@@ -181,13 +177,12 @@ export default {
       selectedTicker: null,
 
       graph: [],
-      // maxGraphElements: 4,
+      // maxGraphElements: 1,
 
       page: 1,
 
       alreadyAdded: false,
       allTockens: [],
-      // recommendedTockens: [],
     };
   },
 
@@ -210,18 +205,6 @@ export default {
     hasNextPage() {
       return this.filteredTickers.length > this.endIndex;
     },
-    // normalizedGraph() {
-    //   console.log("normalizedGraph");
-    //   const maxValue = Math.max(...this.graph);
-    //   const minValue = Math.min(...this.graph);
-
-    //   if (maxValue === minValue) {
-    //     return this.graph.map(() => 50);
-    //   }
-    //   return this.graph.map(
-    //     (price) => 5 + ((price - minValue) * 95) / (maxValue - minValue)
-    //   );
-    // },
     pageStateOptions() {
       return {
         filter: this.filter,
@@ -231,72 +214,36 @@ export default {
   },
 
   methods: {
-    // calculateMaxGraphElements() {
-    //   console.log("this.$refs.graph: ", this.$refs.graph);
-    //   if (!this.$refs.graph) {
-    //     return;
-    //   }
-    //   if (this.$refs.graphElement) {
-    //     this.maxGraphElements = Math.floor(
-    //       this.$refs.graph.clientWidth / this.$refs.graphElement[0].clientWidth
-    //     );
-    //   } else {
-    //     this.maxGraphElements = Math.floor(this.$refs.graph.clientWidth / 1);
-    //   }
-    //   this.updateMaxGraphInGraphic();
-    // },
-    // foofn() {
-    //   console.log("inside foofn");
-    // },
-    // updateMaxGraphInGraphic() {
-    //   if (this.graph.length > this.maxGraphElements) {
-    //     this.graph = this.graph.slice(
-    //       this.graph.length - this.maxGraphElements
-    //     );
-    //   }
-    // },
+    deleteSelectedTicker() {
+      this.selectedTicker = null;
+    },
     updateTicker(tickerName, price) {
       this.tickers
         .filter((t) => t.name === tickerName)
         .forEach((t) => {
           if (t === this.selectedTicker) {
             this.graph.push(price);
-            // this.updateMaxGraphInGraphic();
           }
           t.price = price;
         });
     },
     formatPrice(price) {
-      // console.log("price", price);
       if (price === "-") {
         return price;
       }
       price = +price;
-      // console.log("price type", typeof price);
       return +price > 1 ? +price.toFixed(2) : +price.toPrecision(2);
     },
 
     add(value) {
       console.log("value2?: ", value);
-      // this.ticker = value;
       const currentTicker = { name: value, price: "-" };
-      // const alreadyAdded = this.tickers.find(
-      //   (t) => t.name.toUpperCase() === currentTicker.name.toUpperCase()
-      // );
-      // if (alreadyAdded) {
-      //   console.log("already");
-      //   this.alreadyAdded = true;
-      //   return;
-      // }
 
       this.tickers = [...this.tickers, currentTicker];
-      // this.ticker = "";
       this.filter = "";
       subscribeToTicker(currentTicker.name, (newPrice) =>
         this.updateTicker(currentTicker.name, newPrice)
       );
-
-      // this.recommendedTockens = [];
     },
 
     select(ticker) {
@@ -315,8 +262,8 @@ export default {
   watch: {
     selectedTicker() {
       this.graph = [];
-      console.log("selected");
-      // this.$nextTick().then(this.calculateMaxGraphElements);
+      // this.graph = [this.selectedTicker.price];
+      // console.log("selected");
     },
     tickers(newValue, oldValue) {
       // why watcher doesn't work if you add new value
